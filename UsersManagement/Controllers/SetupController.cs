@@ -29,20 +29,20 @@ namespace UsersManagement.Controllers
         }
 
         [HttpGet("GetAllRoles")]
-        public  IActionResult GetAllRoles()
+        public IActionResult GetAllRoles()
         {
-            var roles =  _roleManager.Roles.ToList();
-           
-             return Ok(roles);
+            var roles = _roleManager.Roles.ToList();
+
+            return Ok(roles);
         }
 
         [HttpPost("AddRole")]
-        public async Task<IActionResult> AddRole([FromBody] string name)
+        public async Task<IActionResult> AddRole(string name)
         {
             var role_exist = await _roleManager.RoleExistsAsync(name);
             if (!role_exist)
             {
-               var role_result = await _roleManager.CreateAsync(new IdentityRole(name));
+                var role_result = await _roleManager.CreateAsync(new IdentityRole(name));
                 if (role_result.Succeeded)
                 {
                     return Ok(new
@@ -56,7 +56,7 @@ namespace UsersManagement.Controllers
         }
 
         [HttpDelete("DeleteRole")]
-        public async Task<IActionResult> DeleteRole([FromBody] string name)
+        public async Task<IActionResult> DeleteRole( string name)
         {
             var role_exist = await _roleManager.RoleExistsAsync(name);
             if (role_exist)
@@ -85,15 +85,15 @@ namespace UsersManagement.Controllers
 
 
         [HttpPost("AddUserToRole")]
-        public async Task<IActionResult> AddUserToRole(string email,string role)
+        public async Task<IActionResult> AddUserToRole( string email, string role)
         {
             var user = await _userManager.FindByEmailAsync(email);
-            if(user != null)
+            if (user != null)
             {
                 var roleExist = await _roleManager.RoleExistsAsync(role);
-                if(roleExist)
+                if (roleExist)
                 {
-                    var result = await _userManager.AddToRoleAsync(user,role);
+                    var result = await _userManager.AddToRoleAsync(user, role);
                     if (result.Succeeded)
                     {
                         return Ok(new
@@ -119,7 +119,7 @@ namespace UsersManagement.Controllers
 
 
         [HttpGet("GetUserRoles")]
-        public async Task<IActionResult> GetUserRoles(string email)
+        public async Task<IActionResult> GetUserRoles( string email)
         {
             var user = await _userManager.FindByEmailAsync(email);
             if(user != null)
@@ -132,6 +132,27 @@ namespace UsersManagement.Controllers
                 result = $"{email} does not match any user !"
             });
 
+        }
+
+        [HttpPost("RemoveUserFromRole")]
+        public async Task<IActionResult> RemoveUserFromRole( string email, string role)
+        {
+            var user = await _userManager.FindByEmailAsync(email);
+            if(user != null)
+            {
+                var roleExist = await _roleManager.RoleExistsAsync(role);
+                if (roleExist)
+                {
+                    var result = await _userManager.RemoveFromRoleAsync(user, role);
+                    return Ok($"the role {role} is removed from {user.UserName}");
+                }
+                return BadRequest(new {
+                result = $"the role {role} is not found"
+                });
+            }
+            return BadRequest(new { 
+                result =  "User not found"
+            });
         }
 
     }

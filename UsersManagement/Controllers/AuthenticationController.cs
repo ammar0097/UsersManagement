@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
+using System.Data;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -18,11 +19,20 @@ namespace UsersManagement.Controllers
         private readonly UserManager<IdentityUser> _userManager;
         //  private readonly JwtConfig _jwtConfig;
         private readonly IConfiguration _configuration;
-        public AuthenticationController(UserManager<IdentityUser> userManager,IConfiguration configuration)
+        private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly ILogger<AuthenticationController> _logger;
+        public AuthenticationController(
+            UserManager<IdentityUser> userManager,
+            IConfiguration configuration,
+            RoleManager<IdentityRole> roleManager,
+            ILogger<AuthenticationController> logger
+            )
         {
+            _roleManager = roleManager;
             _userManager = userManager;
             //_jwtConfig = jwtConfig;
             _configuration = configuration;
+            _logger = logger;
         }
 
         [HttpPost("Register")]
@@ -52,6 +62,11 @@ namespace UsersManagement.Controllers
                 var result = await _userManager.CreateAsync(user,requestDto.Password);
                 if (result.Succeeded)
                 {
+                    // add user to a role
+                    await _userManager.AddToRoleAsync(user, "AppUser");
+                    
+
+
                     var token = GenerateJwtToken(user);
                     return Ok(new AuthResult()
                     {
@@ -128,11 +143,7 @@ namespace UsersManagement.Controllers
             {
                 Subject = new ClaimsIdentity(new[]
                 {
-                    new Claim("Id", user.Id),
-                    new Claim(JwtRegisteredClaimNames.Email, user.Email),
-                    new Claim(JwtRegisteredClaimNames.Sub, user.Email),
-                    new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                    new Claim(JwtRegisteredClaimNames.Iat, DateTime.Now.ToUniversalTime().ToString()),
+                  
                 }),
                 Expires = DateTime.Now.AddHours(1),
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key),SecurityAlgorithms.HmacSha256)
@@ -142,6 +153,42 @@ namespace UsersManagement.Controllers
             var token = jwtTokenHandler.CreateToken(tokenDescriptor);
             return jwtTokenHandler.WriteToken(token);
              
+        }
+
+
+        //get all valid claims for user
+        private async Task<List<Claim>> GetAllValidClaims(IdentityUser user)
+        {
+            var claims = new List<Claim>
+            {
+                    new Claim("Id", user.Id),
+                    new Claim(JwtRegisteredClaimNames.Email, user.Email),
+                    new Claim(JwtRegisteredClaimNames.Sub, user.Email),
+                    new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                    new Claim(JwtRegisteredClaimNames.Iat, DateTime.Now.ToUniversalTime().ToString()),
+            };
+
+            //getting the claims that we have assigned to the user
+            var userClaims = await _userManager.GetClaimsAsync(user);
+            claims.AddRange(userClaims);
+
+            //getting user role and add it to the claims
+            var userRoles = await _userManager.GetRolesAsync(user);
+            foreach(var userRole in userRoles)
+            {
+                claims.Add(new Claim(ClaimTypes.Role, userRole));
+
+                var role = await _roleManager.FindByNameAsync(userRole);
+                if(role != null)
+                {
+                    var roleClaims = await _roleManager.GetClaimsAsync(role);
+                    foreach(var roleClaim in roleClaims)
+                    {
+                        claims.Add(roleClaim);
+                    }
+                }
+            }
+
         }
 
     }
