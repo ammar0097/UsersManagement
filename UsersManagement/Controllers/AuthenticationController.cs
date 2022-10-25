@@ -67,12 +67,15 @@ namespace UsersManagement.Controllers
                     
 
 
-                    var token = GenerateJwtToken(user);
+                    var token = await GenerateJwtTokenAsync(user);
                     return Ok(new AuthResult()
                     {
                         Token = token,
                         Result = true,
-
+                        Roles = new List<string>()
+                        {
+                            "AppUser"
+                        }
                     });
 
 
@@ -100,12 +103,14 @@ namespace UsersManagement.Controllers
                     var validPassword = await _userManager.CheckPasswordAsync(user, requestDto.Password);
                     if (validPassword)
                     {
-                        var token = GenerateJwtToken(user);
-
+                        var token = await GenerateJwtTokenAsync(user);
+                        var roles = await _userManager.GetRolesAsync(user);
                         return Ok(new AuthResult()
                         {
                             Token = token,
                             Result = true,
+                            Roles = new List<string>(roles)
+
                         });
                     }
                     return BadRequest(new AuthResult()
@@ -133,18 +138,15 @@ namespace UsersManagement.Controllers
 
 
 
-        private string GenerateJwtToken(IdentityUser user)
+        private async Task<string> GenerateJwtTokenAsync(IdentityUser user)
         {
             var jwtTokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.UTF8.GetBytes(_configuration["JwtConfig"]);
-
+            var claims = await GetAllValidClaims(user);
             //token descreptor
             var tokenDescriptor = new SecurityTokenDescriptor()
             {
-                Subject = new ClaimsIdentity(new[]
-                {
-                  
-                }),
+                Subject = new ClaimsIdentity(claims),
                 Expires = DateTime.Now.AddHours(1),
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key),SecurityAlgorithms.HmacSha256)
 
@@ -188,7 +190,7 @@ namespace UsersManagement.Controllers
                     }
                 }
             }
-
+            return claims;
         }
 
     }
