@@ -68,6 +68,7 @@ namespace UsersManagement.Controllers
 
 
                     var token = await GenerateJwtTokenAsync(user);
+
                     return Ok(new AuthResult()
                     {
                         Token = token,
